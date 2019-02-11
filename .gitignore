@@ -12,6 +12,9 @@
 *.cb2
 .*.lb
 
+# Ignore output pdf
+*.pdf
+
 ## Intermediate documents:
 *.dvi
 *.xdv
