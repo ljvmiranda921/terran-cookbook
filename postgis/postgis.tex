@@ -226,6 +226,17 @@ WHERE
   a.osm_id < b.osm_id
 \end{lstlisting}
 
+\subsection{On OSM intersections} We took the intersection of
+different roads from OpenStreetMaps, resulting to a set of points. In this
+case, there are two (2) columns: \texttt{fclass} and \texttt{fclass\_2}:
+
+\begin{itemize}
+    \item \texttt{fclass OR fclass\_2}: intersection of either one class. 
+    \item \texttt{fclass AND fclass\_2}: intersection of these two classes
+        exclusively.
+\end{itemize}
+
+
 \section{Best Practices}
 Below are some nice hints and practices for optimizing your queries and running
 PostGIS-BigQuery smoothly:
