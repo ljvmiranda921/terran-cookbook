@@ -1,0 +1,263 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PostGIS Cheatsheet 
+%
+% Source: Lester James V. Miranda (ljvmiranda@gmail.com) 
+% 
+% A one-size-fits-all PostGIS cheat sheet. Kept to two pages, so it 
+% can be printed (double-sided) on one piece of paper
+% 
+% Feel free to distribute this example, but please keep the referral
+% to ljvmiranda@gmail.com 
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[10pt,landscape]{article}
+\usepackage{amssymb,amsmath,amsthm,amsfonts}
+\usepackage{multicol,multirow}
+\usepackage{calc}
+\usepackage{listings}
+\usepackage{ifthen}
+\usepackage[landscape]{geometry}
+\usepackage[colorlinks=true,citecolor=blue,linkcolor=blue]{hyperref}
+\usepackage{courier}
+\lstset{basicstyle=\footnotesize\ttfamily,breaklines=true,language=SQL}
+
+\ifthenelse{\lengthtest { \paperwidth = 11in}}
+    { \geometry{top=.5in,left=.5in,right=.5in,bottom=.5in} }
+	{\ifthenelse{ \lengthtest{ \paperwidth = 297mm}}
+		{\geometry{top=1cm,left=1cm,right=1cm,bottom=1cm} }
+		{\geometry{top=1cm,left=1cm,right=1cm,bottom=1cm} }
+	}
+\pagestyle{empty}
+\makeatletter
+\renewcommand{\section}{\@startsection{section}{1}{0mm}%
+                                {-1ex plus -.5ex minus -.2ex}%
+                                {0.5ex plus .2ex}%x
+                                {\normalfont\large\bfseries}}
+\renewcommand{\subsection}{\@startsection{subsection}{2}{0mm}%
+                                {-1explus -.5ex minus -.2ex}%
+                                {0.5ex plus .2ex}%
+                                {\normalfont\normalsize\bfseries}}
+\renewcommand{\subsubsection}{\@startsection{subsubsection}{3}{0mm}%
+                                {-1ex plus -.5ex minus -.2ex}%
+                                {1ex plus .2ex}%
+                                {\normalfont\small\bfseries}}
+\makeatother
+\setcounter{secnumdepth}{0}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt plus 0.5ex}
+% -----------------------------------------------------------------------
+
+\title{A PostGIS Cookbook for BigQuery}
+
+\begin{document}
+
+\raggedright
+\footnotesize
+
+\begin{center}
+     \Large{\textbf{A PostGIS Cookbook for BigQuery}} \\
+\end{center}
+\begin{multicols}{3}
+\setlength{\premulticols}{1pt}
+\setlength{\postmulticols}{1pt}
+\setlength{\multicolsep}{1pt}
+\setlength{\columnsep}{2pt}
+
+\section{Introduction}
+
+This section gives a short description of PostGIS and BigQuery. The two are
+definitely a match made in heaven, especially with the latter having
+geospatial functions that you can call at scale. Instead of maintaining
+a PostGIS server on the cloud, we can just load data on BigQuery, and perform
+all our spatial reasoning there: no-ops and no database administration.
+
+\subsection{What is PostGIS?}
+PostGIS is an open-source software program that adds support for geographic
+objects to the PostgreSQL object-relational database. It allows us to do
+spatial queries (and perform spatial reasoning), in a more scalable
+manner.
+
+\subsection{What is BigQuery?}
+BigQuery is a data warehouse that delivers super-fast results from SQL queries,
+which it accomplishes using a powerful engine dubbed Dremel. In BQ, you
+don't have to spin up clusters of machines to work with data. 
+
+\section{Cookbook}
+This section includes some easy-to-follow recipes to perform some spatial
+queries. There may be no logic in their arrangement whatsoever, so use
+what you can see. Lastly, some SQL commands here may be based on BigQuery
+rather than good old-fashioned PostgreSQL.
+
+\subsection{Transforming \texttt{STRING} into \texttt{GEOGRAPHY}}
+Sometimes, lat-lon coordinates are loaded as type \texttt{STRING}
+rather than \texttt{GEOGRAPHY}. Here's a command that lets you
+convert them into proper data types: 
+
+\begin{lstlisting}
+SELECT
+    *,
+    ST_GeogPoint(
+        CAST (longitude AS FLOAT64),
+        CAST (latitude AS FLOAT64)
+    ) as g
+FROM
+    table
+\end{lstlisting}
+
+\subsection{Sanitizing bad values in raw coordinates}
+
+Sometimes you'll have lat-lon (as \texttt{STRING}s) that are troublesome
+when \texttt{CAST}ing. It's better to just replace them
+
+\begin{lstlisting}
+SELECT
+    REPLACE(latitude, "*", "") AS CLEAN_LAT
+    REPLACE(longitude, "*", "") AS CLEAN_LON
+    * EXCEPT (LATITUDE, LONGITUDE)
+FROM table
+\end{lstlisting}
+
+\subsection{Getting the distance of a point to a line} This is useful when
+finding the distance between a certain point-of-interest (PoI) to a line
+geography like a road.  In this example, we look for the nearest distance
+to a \texttt{trunk} road. (\textbf{Estimated time:} around 2 minutes)
+
+\begin{lstlisting}
+WITH pairs AS (
+  WITH roads AS (
+    SELECT osm_id, roads.WKT AS WKT
+    FROM `osm.gis_osm_roads_free_1` AS roads
+    WHERE roads.fclass = 'trunk')
+  SELECT
+    ST_DISTANCE(points.WKT, roads.WKT) AS dist,
+    points.WKT AS points_WKT,
+    points.pkey AS house_pkey,
+    roads.WKT AS roads_WKT,
+    roads.osm_id AS osm_id
+  FROM
+    `table` AS points,
+    roads AS roads
+  WHERE
+    ST_DISTANCE(points.WKT, roads.WKT) < 10 * 1000)
+SELECT
+  ARRAY_AGG(pairs ORDER BY dist LIMIT 1)[OFFSET(0)] event
+FROM pairs AS pairs
+GROUP BY pairs.house_pkey
+\end{lstlisting}
+
+As you can see, we're setting a filter of \texttt{dist < 10 * 1000}.
+That means, we're removing distances less than 10km. This is for optimizing
+our queries.
+
+\subsection{Getting the number of lines within a particular point radius or
+``buffer''} Turns
+out, BigQuery doesn't have an \texttt{ST\_BUFFER} command. Here, we present a
+workaround. Suppose we want to count the number of \texttt{trunk} roads within
+a particular distance (half a kilometer) 
+
+\begin{lstlisting}
+WITH pairs AS (
+  WITH roads AS (
+    SELECT osm_id, roads.WKT AS WKT
+    FROM `osm.gis_osm_roads_free_1` AS roads
+    WHERE
+      roads.fclass = 'primary'
+      OR roads.fclass = 'secondary')
+  SELECT
+    ST_DISTANCE(points.WKT, roads.WKT) AS dist,
+    points.WKT AS points_WKT,
+    points.pkey AS house_pkey,
+    roads.WKT AS roads_WKT,
+    roads.osm_id AS osm_id
+  FROM
+    `table` AS points,
+    roads AS roads
+  WHERE
+    ST_DISTANCE(points.WKT, roads.WKT) < 0.5*1000)
+SELECT
+  house_pkey,
+  ST_ASTEXT(points_WKT) as house_WKT,
+  COUNT(DISTINCT(osm_id)) as num_roads
+  FROM pairs
+  GROUP BY house_pkey, house_WKT
+\end{lstlisting}
+
+\subsection{Getting the distance between two points} If you wish to get the
+distance of a point to a nearest point-of-interest (PoI), then this SQL query
+is for you!
+
+\begin{lstlisting}
+WITH pairs AS(
+    WITH pois AS (
+        SELECT osm_id, poi.WKT AS WKT
+        FROM `osm.gis_osm_pois_free_1` AS poi
+        WHERE poi.fclass = 'supermarket')
+    SELECT
+        pois.osm_id as osm_id,
+        ST_DISTANCE(points.WKT, pois.WKT) as dist,
+        points.WKT AS points_WKT,
+        pois.WKT AS poi_WKT,
+        points.pkey as house_pkey
+    FROM
+        `table` AS points,
+        pois AS pois
+    WHERE
+        ST_DISTANCE(points.WKT, pois.WKT) < 10 * 1000)
+SELECT
+  ARRAY_AGG(t ORDER BY dist LIMIT 1)[OFFSET(0)] poi
+FROM pairs as t
+GROUP BY t.house_pkey
+\end{lstlisting}
+
+\subsection{Getting the intersection of line entities} This query may
+be useful when you want to find the intersection of different roads. The output
+of this query is a set of points that you can use for more advanced reasoning.
+
+\begin{lstlisting}
+SELECT
+  a.osm_id as b_osm_id, 
+  b.osm_id  as a_osm_id 
+FROM
+  `osm.gis_osm_roads_free_1` as a,
+  `osm.gis_osm_roads_free_1` as b
+WHERE
+  ST_INTERSECTS(a.WKT, b.WKT) IS NOT NULL AND
+  a.osm_id < b.osm_id
+\end{lstlisting}
+
+\section{Best Practices}
+Below are some nice hints and practices for optimizing your queries and running
+PostGIS-BigQuery smoothly:
+
+\begin{itemize}
+    \item Remove unnecessary geographies from your results.
+    \item Filter first, before doing a cross join.
+    \item Ensure that all operations happen in the primary keys \texttt{pkey}
+        rather than the geography.
+    \item Create an envelope or bounding box when doing \texttt{within} or
+        \texttt{intersect}s operations\textemdash the geographies in our
+        Philippine administrative region datasets are not that simple. 
+    \item QGIS can import CSVs with WKT strings (e.g. the results of exporting
+        a BQ table to a CSV in Google Cloud Storage)
+    \item Create a \texttt{wkt\_string} column in your query results if you
+        will need to export to QGIS. There appears to be a bug when exporting
+        geography columns that will produce something like a \texttt{WKT}
+        column, but some of the records will have malformed entries for the
+        \texttt{WKT}. 
+\end{itemize}
+
+
+%====== REFERENCES ===============
+\nocite{*}
+\bibliographystyle{plain}
+\bibliography{bibliography}
+    
+\vfill
+\hrule
+~\\
+Lj V. Miranda, Thinking Machines Data Science\\
+Contact: \href{mailto:lj@thinkingmachin.es}{lj@thinkingmachin.es}
+\end{multicols}
+
+\end{document}
