@@ -236,6 +236,16 @@ case, there are two (2) columns: \texttt{fclass} and \texttt{fclass\_2}:
         exclusively.
 \end{itemize}
 
+\subsection{Check if the values in a column are unique} This one's weird, but
+there are some cases when the \texttt{PKEY}s in a column are not unique. Just
+as a sanity-check, here's a query for verifying if they are actually unique:
+
+\begin{lstlisting}
+SELECT CASE WHEN COUNT(DISTINCT PKEY)= count(PKEY)
+THEN 'Unique' ELSE 'NOT Unique' END
+FROM table_name;
+\end{lstlisting}
+
 
 \section{Best Practices}
 Below are some nice hints and practices for optimizing your queries and running
