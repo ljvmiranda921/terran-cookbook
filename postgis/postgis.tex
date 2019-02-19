@@ -68,11 +68,11 @@
 
 \section{Introduction}
 
-This section gives a short description of PostGIS and BigQuery. The two are
-definitely a match made in heaven, especially with the latter having
-geospatial functions that you can call at scale. Instead of maintaining
-a PostGIS server on the cloud, we can just load data on BigQuery, and perform
-all our spatial reasoning there: no-ops and no database administration.
+This cookbook is apt for geospatial analysts who are using PostGIS and BigQuery
+    (BQ) in their workflows.  The two are definitely a match made in heaven,
+    especially with the latter having geospatial functions that you can call at
+    scale. Instead of maintaining a PostGIS server on the cloud, we can just
+    load data on BigQuery, and perform all our spatial reasoning there.
 
 \tableofcontents
 
@@ -256,9 +256,8 @@ Below are some nice hints and practices for optimizing your queries and running
 PostGIS-BigQuery smoothly:
 
 \begin{itemize}
-    \item Remove unnecessary geographies from your results.
-    \item Filter first, before doing a cross join.
-    \item Ensure that all operations happen in the primary keys \texttt{pkey}
+    \item Remove unnecessary geographies from your results. It may be a good
+        idea to filter first before doing a cross join. Ensure that all operations happen in the primary keys \texttt{pkey}
         rather than the geography.
     \item Create an envelope or bounding box when doing \texttt{within} or
         \texttt{intersect}s operations\textemdash the geographies in our
