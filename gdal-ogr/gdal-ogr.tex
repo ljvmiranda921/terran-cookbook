@@ -1,0 +1,247 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% GDAL/OGR Cheatsheet 
+%
+% Source: Lester James V. Miranda (ljvmiranda@gmail.com) 
+% 
+% A one-size-fits-all PostGIS cheat sheet. Kept to two pages, so it 
+% can be printed (double-sided) on one piece of paper
+% 
+% Feel free to distribute this example, but please keep the referral
+% to ljvmiranda@gmail.com 
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[10pt,landscape]{article}
+\usepackage{amssymb,amsmath,amsthm,amsfonts}
+\usepackage{multicol,multirow}
+\usepackage{calc}
+\usepackage{listings}
+\usepackage{ifthen}
+\usepackage[landscape]{geometry}
+\usepackage[colorlinks=true,citecolor=blue,linkcolor=blue]{hyperref}
+\usepackage{courier}
+\lstset{basicstyle=\footnotesize\ttfamily,
+        breaklines=true, 
+        language=bash,
+        showstringspaces=false,
+        morekeywords={
+            apt,
+            get,
+            gdalwarp,
+            sudo,
+            apt-get,
+            pip,
+            ogr2ogr,
+            gdal_edit,
+            gdal_translate,
+            gdal_contrast_stretch,
+            gdal_translate,
+            conda
+        }}
+\renewcommand{\familydefault}{\sfdefault}
+
+\ifthenelse{\lengthtest { \paperwidth = 11in}}
+    { \geometry{top=.5in,left=.5in,right=.5in,bottom=.5in} }
+	{\ifthenelse{ \lengthtest{ \paperwidth = 297mm}}
+		{\geometry{top=1cm,left=1cm,right=1cm,bottom=1cm} }
+		{\geometry{top=1cm,left=1cm,right=1cm,bottom=1cm} }
+	}
+\pagestyle{empty}
+\makeatletter
+\renewcommand{\section}{\@startsection{section}{1}{0mm}%
+                                {-1ex plus -.5ex minus -.2ex}%
+                                {0.5ex plus .2ex}%x
+                                {\normalfont\large\bfseries}}
+\renewcommand{\subsection}{\@startsection{subsection}{2}{0mm}%
+                                {-1explus -.5ex minus -.2ex}%
+                                {0.5ex plus .2ex}%
+                                {\normalfont\normalsize\bfseries}}
+\renewcommand{\subsubsection}{\@startsection{subsubsection}{3}{0mm}%
+                                {-1ex plus -.5ex minus -.2ex}%
+                                {1ex plus .2ex}%
+                                {\normalfont\small\bfseries}}
+\makeatother
+\setcounter{secnumdepth}{0}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt plus 0.5ex}
+% -----------------------------------------------------------------------
+
+\title{GDAL/OGR Cookbook for Scalable GIS}
+
+\begin{document}
+
+\raggedright
+\footnotesize
+
+\begin{center}
+     \Large{\textbf{GDAL/OGR Cookbook for Scalable GIS}} \\
+\end{center}
+\begin{multicols}{3}
+\setlength{\premulticols}{1pt}
+\setlength{\postmulticols}{1pt}
+\setlength{\multicolsep}{1pt}
+\setlength{\columnsep}{2pt}
+
+\section{Introduction}
+
+This cookbook is intended for geospatial analysts who would like to perform
+raster and vector manipulation at scale. Usually, we do things via the
+    QGIS desktop in our local machines, but this may not hold given huge
+    amounts of data. There will be cases where we need to employ scripting
+    techniques in our geospatial workflows, and this is where GDAL/OGR enters
+    the picture.  
+
+\tableofcontents
+
+\subsection{What is GDAL?}
+
+\par The Geospatial Data Abstraction Library (GDAL) is a suite of tools that
+    allows us to read, write, and manipulate raster and vector data formats.
+    Some QGIS functionalities were built on top of it, however, if we want
+    scalable (and more automated) workflows for processing geospatial data,
+    then we need to use this library. GDAL consists of
+    \href{https://www.gdal.org/gdal_utilities.html}{utility
+    programs} that you can invoke within the
+    command-line. 
+
+\subsection{What is OGR?}
+
+\par OGR Simple Features Library allows us to perform multiple operations in a
+variety of vector formats such as ESRI Shapefiles, S-57, SDTS, PostGIS,
+    Oracle Spatial, and Mapinfo mid/mif and TAB formats.
+
+\section{Setup \& Installation}
+
+There are a lot of ways to install GDAL in your system, and because of that,
+    can lead to confusing installation instructions. Here's our
+    recommended way of installing them.
+
+\subsection{Install via Anaconda}
+
+    The painless way of installing GDAL is through the 
+    \href{https://conda.io/en/latest/}{\texttt{conda} package manager}.
+    Simply execute the following command:
+
+\begin{lstlisting}
+conda install gdal
+\end{lstlisting}
+
+This should work most of the time. You can check if your installation
+    succeeded by running:
+
+\begin{lstlisting}
+gdal-config --version
+\end{lstlisting}
+
+and check if it installed inside your Anaconda path:
+
+\begin{lstlisting}
+gdal-config --prefix
+\end{lstlisting}
+
+\subsection{Install GDAL manually}
+
+If you don't rely on the Anaconda distribution nor the \texttt{conda}
+package manager, then you should install GDAL manually. First, install some
+system-wide dependencies:
+
+\begin{lstlisting}
+sudo apt-get install libgdal-dev gdal-bin=2.3.* 
+\end{lstlisting}
+
+I suggest looking at the dependency trees for
+\href{https://packages.ubuntu.com/trusty/libgdal-dev}{\texttt{libgdal-dev}}
+and \href{https://packages.ubuntu.com/trusty/gdal-bin}{\texttt{gdal-bin}}
+to better understand how they all fit together. Afterwards, you need to export the following environmental variables
+
+\begin{lstlisting}
+export GDAL_DATA=/usr/share/gdal/2.1/
+export CPLUS_INCLUDE_PATH=/usr/include/gdal
+export C_INCLUDE_PATH=/usr/include/gdal
+\end{lstlisting}
+
+Then you can install the Python bindings for GDAL:
+
+\begin{lstlisting}
+sudo apt-get install python-gdal
+\end{lstlisting}
+
+(optional) You can also install the Python library from \texttt{pip}. This
+assumes that all of the above steps were successful:
+
+\begin{lstlisting}
+pip install GDAL
+\end{lstlisting}
+
+\section{Cookbook}
+
+This section includes some easy-to-follow recipes to perform some geospatial
+operations to vector or raster data. There may be no logic in their
+arrangement whatsoever, so use what you can see. 
+
+\subsection{Loading data into PostgreSQL}
+
+If you want to store your data in a geodata warehouse, then follow this
+command:
+
+\begin{lstlisting}
+ogr2ogr -f "PostgreSQL" 
+        PG:"dbname='my_database' 
+        host='XX.XXX.XXX.XXX' port='5432' 
+        user='postgres' 
+        password='<insert password>'" 
+        file
+\end{lstlisting}
+
+There are restrictions in naming the uploaded files. For example, you cannot
+precede with a numeric value. So if you upload a file named
+\texttt{001.geojson}, it will automatically be renamed into
+\texttt{\_001.geojson}.
+
+In order to override that, you can pass the argument \texttt{-nln} and
+provide the new name as a parameter.
+
+\subsection{Converting 16-bit rasters into 8-bit}
+
+There are some cases where we'll need to work with a lower-order image
+rather than a high-order one. We can accomplish these steps by executing
+the following commands:
+
+\begin{lstlisting}
+gdalwarp -srcnodata 0 
+         -dstalpha 
+         file.TIF file_temp.TIF
+gdal_edit.py -unsetnodata file_temp.TIF
+gdal_translate -scale 0 65535 0 65535 
+               -b 3 -b 2 -b 1 -b 5 
+               -co PHOTOMETRIC=RGB
+               file_temp.TIF file_temp2.TIF
+gdal_contrast_stretch -ndv 0 
+                    -percentile-range 0.03 0.97 
+                    file_temp2.TIF file_temp3.TIF
+gdal_translate -b 1 -scale 0 255 0 255 
+               -b 2 -scale 0 255 0 255 
+               -b 3 -scale 0 255 0 255 
+               -b 4 -scale 0 1 0 255 
+               file_temp3.TIF new_file.TIF
+\end{lstlisting}
+
+From here, you can remove all intermediary files:
+
+\begin{lstlisting}
+rm -rf *_temp*.TIF
+\end{lstlisting}
+
+%====== REFERENCES ===============
+\nocite{*}
+\bibliographystyle{plain}
+\bibliography{bibliography}
+    
+\vfill
+\hrule
+~\\
+Lj V. Miranda, Thinking Machines Data Science\\
+Contact: \href{mailto:lj@thinkingmachin.es}{lj@thinkingmachin.es}
+\end{multicols}
+
+\end{document}
